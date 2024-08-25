@@ -60,7 +60,7 @@ class ControlButtons(discord.ui.View):
 
 @bot.event
 async def on_ready():
-    await bot.tree.sync()
+    await bot.tree.sync() # sync /commands
     print(f'Logged in as {bot.user}')
     # Load initial channel from .env if available
     channel_id = os.getenv('ASSIGNED_CHANNEL_ID')
@@ -121,7 +121,7 @@ async def play(interaction: discord.Interaction, query: str):
                 'quiet': True,
                 'format': 'bestaudio/best',
                 'noplaylist': True,  # Ensure it processes as a single video
-                'cachedir': 'C:\\Users\\jacob\\code\\.yt-dlp-cache'
+                'cachedir': False
             }
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -169,10 +169,10 @@ async def play_podcast(interaction: discord.Interaction):
         }],
         'quiet': True,
         'noplaylist': True,  # Ensure it processes as a single video
-        'cachedir': 'C:\\Users\\jacob\\code\\.yt-dlp-cache'
+        'cachedir': False
     }
 
-    os.makedirs('C:\\Users\\jacob\\code\\.yt-dlp-cache', exist_ok=True)
+    # os.makedirs('C:\\Users\\jacob\\code\\.yt-dlp-cache', exist_ok=True)
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(bot.current_pod['url'], download=False)
