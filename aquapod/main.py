@@ -2,7 +2,6 @@ import os
 import logging
 from dotenv import load_dotenv
 import yt_dlp
-import pprint
 
 import discord
 from discord import app_commands
@@ -24,6 +23,18 @@ DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 intents = discord.Intents.default()
 intents.message_content = True
 
+# Colors for terminal messages
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 # Setup Discord bot 
 class PodBot(commands.Bot):
     def __init__(self):
@@ -43,32 +54,54 @@ class ControlButtons(discord.ui.View):
         super().__init__(timeout=None)
 
     @discord.ui.button(label='Pause', style=discord.ButtonStyle.primary, emoji='⏸️')
-    async def pause_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-        await pause(interaction)
+    async def pause_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await is_dj_or_admin(interaction):
+            await interaction.response.send_message("You need to be a DJ or admin to use this button.", ephemeral=True)
+            return
+        await pause_action(interaction)
 
     @discord.ui.button(label='Resume', style=discord.ButtonStyle.primary, emoji='▶️')
-    async def resume_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-        await resume(interaction)
+    async def resume_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await is_dj_or_admin(interaction):
+            await interaction.response.send_message("You need to be a DJ or admin to use this button.", ephemeral=True)
+            return
+        await resume_action(interaction)
 
     @discord.ui.button(label='Skip', style=discord.ButtonStyle.primary, emoji='⏭️')
-    async def skip_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-        await skip(interaction)
+    async def skip_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await is_dj_or_admin(interaction):
+            await interaction.response.send_message("You need to be a DJ or admin to use this button.", ephemeral=True)
+            return
+        await skip_action(interaction)
 
     @discord.ui.button(label='Stop', style=discord.ButtonStyle.danger, emoji='⏹️')
-    async def stop_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-        await stop(interaction)
+    async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await is_dj_or_admin(interaction):
+            await interaction.response.send_message("You need to be a DJ or admin to use this button.", ephemeral=True)
+            return
+        await stop_action(interaction)
 
 @bot.event
 async def on_ready():
     await bot.tree.sync() # sync /commands
-    print(f'Logged in as {bot.user}')
+    print(f'{bcolors.OKBLUE}Logged in as {bot.user}')
     # Load initial channel from .env if available
     channel_id = os.getenv('ASSIGNED_CHANNEL_ID')
     if channel_id:
         bot.assigned_channel_id = int(channel_id)
 
 async def is_dj_or_admin(interaction: discord.Interaction) -> bool:
-    return interaction.user.guild_permissions.administrator or discord.utils.get(interaction.user.roles, name="DJ") is not None
+    if not hasattr(interaction, 'user'):
+        # If interaction doesn't have user attribute, try to get the user from the member attribute
+        user = getattr(interaction, 'member', None)
+        if user is None:
+            # If we can't get the user, assume they don't have permission
+            return False
+    else:
+        user = interaction.user
+
+    # Now use the user object for permission checking
+    return user.guild_permissions.administrator or discord.utils.get(user.roles, name="DJ") is not None
 
 def update_queue_message_content() -> str:
     """Generates the content for the persistent queue message."""
@@ -93,68 +126,6 @@ async def update_queue_message(interaction: discord.Interaction):
             bot.queue_message = await channel.send(content=update_queue_message_content(), view=ControlButtons())
     else:
         await interaction.response.send_message("No channel is set for the bot. Use the /set_channel command to set one.", ephemeral=True)
-
-@bot.tree.command()
-@app_commands.describe(query="Provide a YouTube link")
-async def play(interaction: discord.Interaction, query: str):
-    if not await is_dj_or_admin(interaction):
-        await interaction.response.send_message("You need to be a DJ or admin to use this command.", ephemeral=True)
-        return
-
-    if interaction.user.voice is None:
-        await interaction.response.send_message("You need to be in a voice channel to play music.", ephemeral=True)
-        return
-
-    voice_channel = interaction.user.voice.channel
-    if not interaction.guild.voice_client:
-        await voice_channel.connect()
-    elif interaction.guild.voice_client.channel != voice_channel:
-        await interaction.guild.voice_client.move_to(voice_channel)
-
-    await interaction.response.defer(ephemeral=True)
-
-    print(f"Received query: {query}")
-
-    try:
-        if 'youtube.com' in query or 'youtu.be' in query:
-            ydl_opts = {
-                'quiet': True,
-                'format': 'bestaudio/best',
-                'noplaylist': True,  # Ensure it processes as a single video
-                'cachedir': False
-            }
-
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(query, download=False)
-
-            video_url = info.get('url')
-            video_title = info.get('title', query)  # Fetch the title or use the query if not found
-
-            if not video_url:
-                await interaction.followup.send("Failed to extract video URL. Please check the link.", ephemeral=True)
-                return
-
-            pod_info = {
-                'name': video_title,
-                'url': video_url
-            }
-
-            if bot.current_pod:
-                bot.pod_queue.append(pod_info)
-                await interaction.followup.send(f"Added to queue: {pod_info['name']}", ephemeral=True)
-            else:
-                bot.current_pod = pod_info
-                await play_podcast(interaction)
-
-        else:
-            await interaction.followup.send("Invalid URL. Please provide a valid YouTube link.", ephemeral=True)
-            return
-
-        await update_queue_message(interaction)
-
-    except Exception as e:
-        await interaction.followup.send(f"An error occurred: {str(e)}", ephemeral=True)
-        print(f"Error in play command: {e}")
 
 async def play_podcast(interaction: discord.Interaction):
     if not bot.current_pod:
@@ -185,65 +156,148 @@ async def play_podcast(interaction: discord.Interaction):
     voice_client = interaction.guild.voice_client
     voice_client.play(discord.FFmpegPCMAudio(url), after=lambda e: bot.loop.create_task(play_next(interaction)))
     await interaction.followup.send(f"Now playing: {bot.current_pod['name']}", ephemeral=True)
+    print(f"{bcolors.OKBLUE}Now playing: {bot.current_pod['name']}")
     
     # Update the queue message to show the new "Now Playing" status
     await update_queue_message(interaction)
+
 
 async def play_next(interaction: discord.Interaction):
     if bot.pod_queue:
         bot.current_pod = bot.pod_queue.pop(0)
         await play_podcast(interaction)
+        print(f"{bcolors.OKCYAN}Playing next track...")
     else:
         bot.current_pod = None
     await update_queue_message(interaction)
 
-@bot.tree.command()
-async def pause(interaction: discord.Interaction):
-    if not await is_dj_or_admin(interaction):
-        await interaction.response.send_message("You need to be a DJ or admin to use this command.", ephemeral=True)
-        return
+async def pause_action(interaction: discord.Interaction):
     if interaction.guild.voice_client and interaction.guild.voice_client.is_playing():
         interaction.guild.voice_client.pause()
         await interaction.response.send_message("Paused the playback.", ephemeral=True)
+        print(f"{bcolors.OKGREEN} Track paused.")
     else:
         await interaction.response.send_message("No audio is currently playing.", ephemeral=True)
 
-@bot.tree.command()
-async def resume(interaction: discord.Interaction):
-    if not await is_dj_or_admin(interaction):
-        await interaction.response.send_message("You need to be a DJ or admin to use this command.", ephemeral=True)
-        return
+async def resume_action(interaction: discord.Interaction):
     if interaction.guild.voice_client and interaction.guild.voice_client.is_paused():
         interaction.guild.voice_client.resume()
         await interaction.response.send_message("Resumed the playback.", ephemeral=True)
+        print(f"{bcolors.OKGREEN} Track resumed.")
     else:
         await interaction.response.send_message("No audio is paused.", ephemeral=True)
 
-@bot.tree.command()
-async def stop(interaction: discord.Interaction):
-    if not await is_dj_or_admin(interaction):
-        await interaction.response.send_message("You need to be a DJ or admin to use this command.", ephemeral=True)
-        return
+async def skip_action(interaction: discord.Interaction):
+    if interaction.guild.voice_client and (interaction.guild.voice_client.is_playing() or interaction.guild.voice_client.is_paused()):
+        interaction.guild.voice_client.stop()
+        await interaction.response.send_message("Skipped the current track.", ephemeral=True)
+        print(f"{bcolors.OKGREEN} Track skipped.")
+        await play_next(interaction)
+    else:
+        await interaction.response.send_message("No audio is currently playing.", ephemeral=True)
+
+async def stop_action(interaction: discord.Interaction):
     if interaction.guild.voice_client:
         interaction.guild.voice_client.stop()
         await interaction.guild.voice_client.disconnect()
         bot.current_pod = None
         bot.pod_queue.clear()
         await interaction.response.send_message("Stopped the playback and cleared the queue.", ephemeral=True)
+        print(f"{bcolors.OKGREEN} Playback stopped and queue cleared.")
     else:
         await interaction.response.send_message("No audio is currently playing.", ephemeral=True)
+
+@bot.tree.command()
+@app_commands.describe(query="Provide a YouTube link")
+async def play(interaction: discord.Interaction, query: str):
+    if not await is_dj_or_admin(interaction):
+        await interaction.response.send_message("You need to be a DJ or admin to use this command.", ephemeral=True)
+        return
+
+    if interaction.user.voice is None:
+        await interaction.response.send_message("You need to be in a voice channel to play music.", ephemeral=True)
+        return
+
+    voice_channel = interaction.user.voice.channel
+    if not interaction.guild.voice_client:
+        await voice_channel.connect()
+    elif interaction.guild.voice_client.channel != voice_channel:
+        await interaction.guild.voice_client.move_to(voice_channel)
+
+    await interaction.response.defer(ephemeral=True)
+
+    print(f"{bcolors.OKCYAN}Received query: {query}")
+
+    try:
+        if 'youtube.com' in query or 'youtu.be' in query:
+            ydl_opts = {
+                'quiet': True,
+                'format': 'bestaudio/best',
+                'noplaylist': True,  # Ensure it processes as a single video
+                'cachedir': False
+            }
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(query, download=False)
+
+            video_url = info.get('url')
+            video_title = info.get('title', query)  # Fetch the title or use the query if not found
+
+            if not video_url:
+                await interaction.followup.send("Failed to extract video URL. Please check the link.", ephemeral=True)
+                print(f"{bcolors.OKWARNING}Failed to extract video URL. Invalid link.")
+                return
+
+            pod_info = {
+                'name': video_title,
+                'url': video_url
+            }
+
+            if bot.current_pod:
+                bot.pod_queue.append(pod_info)
+                await interaction.followup.send(f"Added to queue: {pod_info['name']}", ephemeral=True)
+                print(f"{bcolors.OKGREEN}Added to queue: {pod_info['name']}")
+            else:
+                bot.current_pod = pod_info
+                await play_podcast(interaction)
+
+        else:
+            await interaction.followup.send("Invalid URL. Please provide a valid YouTube link.", ephemeral=True)
+            return
+
+        await update_queue_message(interaction)
+
+    except Exception as e:
+        await interaction.followup.send(f"An error occurred: {str(e)}", ephemeral=True)
+        print(f"{bcolors.FAIL}Error in play command: {e}")
+
+@bot.tree.command()
+async def pause(interaction: discord.Interaction):
+    if not await is_dj_or_admin(interaction):
+        await interaction.response.send_message("You need to be a DJ or admin to use this command.", ephemeral=True)
+        return
+    await pause_action(interaction)
+
+@bot.tree.command()
+async def resume(interaction: discord.Interaction):
+    if not await is_dj_or_admin(interaction):
+        await interaction.response.send_message("You need to be a DJ or admin to use this command.", ephemeral=True)
+        return
+    await resume_action(interaction)
+
+@bot.tree.command()
+async def stop(interaction: discord.Interaction):
+    if not await is_dj_or_admin(interaction):
+        await interaction.response.send_message("You need to be a DJ or admin to use this command.", ephemeral=True)
+        return
+    await stop_action(interaction)
 
 @bot.tree.command()
 async def skip(interaction: discord.Interaction):
     if not await is_dj_or_admin(interaction):
         await interaction.response.send_message("You need to be a DJ or admin to use this command.", ephemeral=True)
         return
-    if interaction.guild.voice_client and (interaction.guild.voice_client.is_playing() or interaction.guild.voice_client.is_paused()):
-        interaction.guild.voice_client.stop()
-        await interaction.response.send_message("Skipped the current track.", ephemeral=True)
-        await play_next(interaction)
-    else:
-        await interaction.response.send_message("No audio is currently playing.", ephemeral=True)
+    await skip_action(interaction)
 
 @bot.tree.command()
 async def clear_queue(interaction: discord.Interaction):
@@ -265,11 +319,12 @@ async def refresh(interaction: discord.Interaction):
         try:
             await bot.queue_message.delete()
         except Exception as e:
-            print(f"Error deleting queue message: {e}")
+            print(f"{bcolors.FAIL}Error deleting queue message: {e}")
     
     bot.queue_message = None
     await update_queue_message(interaction)
     await interaction.response.send_message("The persistent queue message has been refreshed.", ephemeral=True)
+    print(f"{bcolors.OKGREEN}Queue message refreshed.")
 
 @bot.tree.command()
 @app_commands.describe(channel="The channel to set for bot operations")
@@ -287,6 +342,7 @@ async def set_channel(interaction: discord.Interaction, channel: discord.TextCha
 
     bot.assigned_channel_id = channel.id
     await interaction.response.send_message(f"The bot channel has been set to {channel.mention}.", ephemeral=True)
+    print(f"{bcolors.OKCYAN}The bot channel has been set to {channel.mention}.")
     
     # Update queue message in the new channel
     bot.queue_message = None
