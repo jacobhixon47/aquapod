@@ -1,3 +1,6 @@
 **/.env
+.env
 **/.cache
 poetry.lock
+**/discord.log
+discord.log
