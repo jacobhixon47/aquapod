@@ -43,19 +43,19 @@ class ControlButtons(discord.ui.View):
         super().__init__(timeout=None)
 
     @discord.ui.button(label='Pause', style=discord.ButtonStyle.primary, emoji='⏸️')
-    async def pause(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def pause_button(self, button: discord.ui.Button, interaction: discord.Interaction):
         await pause(interaction)
 
     @discord.ui.button(label='Resume', style=discord.ButtonStyle.primary, emoji='▶️')
-    async def resume(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def resume_button(self, button: discord.ui.Button, interaction: discord.Interaction):
         await resume(interaction)
 
     @discord.ui.button(label='Skip', style=discord.ButtonStyle.primary, emoji='⏭️')
-    async def skip(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def skip_button(self, button: discord.ui.Button, interaction: discord.Interaction):
         await skip(interaction)
 
     @discord.ui.button(label='Stop', style=discord.ButtonStyle.danger, emoji='⏹️')
-    async def stop(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def stop_button(self, button: discord.ui.Button, interaction: discord.Interaction):
         await stop(interaction)
 
 @bot.event
@@ -72,13 +72,16 @@ async def is_dj_or_admin(interaction: discord.Interaction) -> bool:
 
 def update_queue_message_content() -> str:
     """Generates the content for the persistent queue message."""
-    if not bot.pod_queue and not bot.current_pod:
-        return "The queue is currently empty."
+    now_playing = f"**Now Playing:** {bot.current_pod['name'] if bot.current_pod else 'Nothing'}"
     
-    queue_content = f"**Now Playing:** {bot.current_pod['name'] if bot.current_pod else 'Nothing'}\n\n**Queue:**\n"
-    for idx, pod in enumerate(bot.pod_queue, start=1):
-        queue_content += f"{idx}. {pod['name']}\n"
-    return queue_content
+    queue_content = "\n\n**Queue:**\n"
+    if not bot.pod_queue:
+        queue_content += "The queue is currently empty."
+    else:
+        for idx, pod in enumerate(bot.pod_queue, start=1):
+            queue_content += f"{idx}. {pod['name']}\n"
+
+    return now_playing + queue_content
 
 async def update_queue_message(interaction: discord.Interaction):
     """Updates the persistent queue message or sends a new one if not exists."""
@@ -182,6 +185,9 @@ async def play_podcast(interaction: discord.Interaction):
     voice_client = interaction.guild.voice_client
     voice_client.play(discord.FFmpegPCMAudio(url), after=lambda e: bot.loop.create_task(play_next(interaction)))
     await interaction.followup.send(f"Now playing: {bot.current_pod['name']}", ephemeral=True)
+    
+    # Update the queue message to show the new "Now Playing" status
+    await update_queue_message(interaction)
 
 async def play_next(interaction: discord.Interaction):
     if bot.pod_queue:
@@ -247,6 +253,23 @@ async def clear_queue(interaction: discord.Interaction):
     bot.pod_queue.clear()
     await interaction.response.send_message("Cleared the queue.", ephemeral=True)
     await update_queue_message(interaction)
+
+@bot.tree.command()
+async def refresh(interaction: discord.Interaction):
+    """Command to delete and recreate the persistent queue message."""
+    if not await is_dj_or_admin(interaction):
+        await interaction.response.send_message("You need to be a DJ or admin to use this command.", ephemeral=True)
+        return
+    
+    if bot.queue_message:
+        try:
+            await bot.queue_message.delete()
+        except Exception as e:
+            print(f"Error deleting queue message: {e}")
+    
+    bot.queue_message = None
+    await update_queue_message(interaction)
+    await interaction.response.send_message("The persistent queue message has been refreshed.", ephemeral=True)
 
 @bot.tree.command()
 @app_commands.describe(channel="The channel to set for bot operations")
