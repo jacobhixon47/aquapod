@@ -1,6 +1,5 @@
 import os
 import logging
-import asyncio
 from dotenv import load_dotenv
 import yt_dlp
 import pprint
@@ -12,6 +11,13 @@ from discord.ext import commands
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
+# logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('discord')
+logger.setLevel(logging.DEBUG)
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+logger.addHandler(handler)
 
 # get tokens from .env
 load_dotenv()
@@ -25,9 +31,6 @@ spotify = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(
     client_id=SPOTIFY_CLIENT_ID,
     client_secret=SPOTIFY_CLIENT_SECRET
 ))
-
-# # logging setup
-# logging.basicConfig(level=logging.info)
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -43,13 +46,6 @@ class PodBot(commands.Bot):
         await self.tree.sync()
 
 bot = PodBot()
-
-# error handling and logging
-# @bot.event
-# async def on_command_error(ctx, error):
-#     if isinstance(error, commands.CommandInvokeError):
-#         await ctx.send(f"An error occurred: {error.original}")
-#     logging.error(f"An error occurred: {error}", exc_info=True)
 
 @bot.event
 async def on_ready():
@@ -75,26 +71,50 @@ async def play(interaction: discord.Interaction, query: str):
     elif interaction.guild.voice_client.channel != voice_channel:
         await interaction.guild.voice_client.move_to(voice_channel)
 
-    results = spotify.search(q=query, type='episode', limit=5)
+    print(f"Received query: {query}")
 
-    if not results['episodes']['items']:
-        await interaction.response.send_message("No podcast found.")
-        return
+    try:
+        if 'open.spotify.com' in query:
+            # Handle Spotify URL
+            if '/episode/' in query:
+                episode_id = query.split('/episode/')[-1].split('?')[0]
+            elif '/show/' in query:
+                show_id = query.split('/show/')[-1].split('?')[0]
+                # Get the latest episode of the show
+                show = spotify.show(show_id)
+                episode_id = show['episodes']['items'][0]['id']
+            else:
+                await interaction.response.send_message("Invalid Spotify link. Please provide an episode or show link.")
+                return
+            
+            episode = spotify.episode(episode_id)
+        else:
+            results = spotify.search(q=query, type='episode', limit=1)
+            
+            print(f"Spotify search results: {results}")
 
-    episode = results['episodes']['items'][0]
-    pod_info = {
-        'name': episode['name'],
-        'url': episode['external_urls']['spotify'],
-        'duration': episode['duration_ms'] / 1000  # Convert to seconds
-    }
-    pprint.pp(pod_info, indent=2, width=50)
+            if not results['episodes']['items']:
+                await interaction.response.send_message("No podcast found.")
+                return
+            episode = results['episodes']['items'][0]
 
-    if bot.current_pod:
-        bot.pod_queue.append(pod_info)
-        await interaction.response.send_message(f"Added to queue: {pod_info['name']}")
-    else:
-        bot.current_pod = pod_info
-        await play_podcast(interaction)
+        pod_info = {
+            'name': episode['name'],
+            'url': episode['external_urls']['spotify'],
+            'duration': episode['duration_ms'] / 1000  # Convert to seconds
+        }
+
+        pprint.pp(f"Pod info: \n{pod_info}", indent=2, width=50)
+
+        if bot.current_pod:
+            bot.pod_queue.append(pod_info)
+            await interaction.response.send_message(f"Added to queue: {pod_info['name']}")
+        else:
+            bot.current_pod = pod_info
+            await play_podcast(interaction)
+    except Exception as e:
+        await interaction.response.send_message(f"An error occurred: {str(e)}")
+        print(f"Error in play command: {e}")
 
 async def play_podcast(interaction: discord.Interaction):
     if not bot.current_pod:
@@ -126,13 +146,20 @@ async def play_next(interaction: discord.Interaction):
 
 @play.autocomplete('query')
 async def play_autocomplete(interaction: discord.Interaction, current: str):
-    if not current:
+    if len(current) < 2:
         return []
-    results = spotify.search(q=current, type='episode', limit=5)
-    return [
-        app_commands.Choice(name=episode['name'], value=episode['name'])
-        for episode in results['episodes']['items']
-    ]
+    try:
+        results = spotify.search(q=current, type='episode', limit=5)
+        choices = [
+            app_commands.Choice(name=episode['name'][:100], value=episode['name'][:100])
+            for episode in results['episodes']['items']
+        ]
+        print(f"Autocomplete results for '{current}': {choices}")
+        return choices
+    except Exception as e:
+        print(f"Autocomplete error: {e}")
+        return []
+
 
 @bot.tree.command()
 async def pause(interaction: discord.Interaction):
