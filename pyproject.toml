@@ -11,6 +11,7 @@ discord-py = {extras = ["voice"], version = "^2.4.0"}
 spotipy = "^2.24.0"
 python-dotenv = "^1.0.1"
 yt-dlp = "^2024.8.6"
+keyboard = "^0.13.5"
 
 
 [build-system]
