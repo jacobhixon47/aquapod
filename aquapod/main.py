@@ -141,7 +141,8 @@ async def play_podcast(interaction: discord.Interaction):
         }],
         'quiet': True,
         'noplaylist': True,  # Ensure it processes as a single video
-        'cachedir': False
+        'cachedir': False,
+        'cookiefile': 'cookies.txt'
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -239,7 +240,8 @@ async def play(interaction: discord.Interaction, query: str):
                 'quiet': True,
                 'format': 'bestaudio/best',
                 'noplaylist': True,  # Ensure it processes as a single video
-                'cachedir': False
+                'cachedir': False,
+                'cookiefile': 'cookies.txt'
             }
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
