@@ -159,10 +159,10 @@ async def play_podcast(interaction: discord.Interaction):
     if is_live:
         voice_client.play(discord.FFmpegPCMAudio(url), after=lambda e: bot.loop.create_task(play_next(interaction)))
         await interaction.followup.send(f"Now playing (live): {bot.current_pod['name']}", ephemeral=True)
-        print(f"{bcolors.OKCYAN}Now playing (live): {bcolors.MAGENTA}{bot.current_pod['name']}{bcolors.DEFAULT}")
+        print(f"{bcolors.OKCYAN}Now playing (live): {bcolors.OKMAGENTA}{bot.current_pod['name']}{bcolors.DEFAULT}")
     else:
         voice_client.play(discord.FFmpegPCMAudio(url), after=lambda e: bot.loop.create_task(play_next(interaction)))
-        await interaction.followup.send(f"Now playing: {bcolors.MAGENTA}{bot.current_pod['name']}", ephemeral=True)
+        await interaction.followup.send(f"Now playing: {bcolors.OKMAGENTA}{bot.current_pod['name']}", ephemeral=True)
         print(f"{bcolors.OKCYAN}Now playing: {bot.current_pod['name']}{bcolors.DEFAULT}")
     
     # Update the queue message to show the new "Now Playing" status
@@ -233,7 +233,7 @@ async def play(interaction: discord.Interaction, query: str):
 
     await interaction.response.defer(ephemeral=True)
 
-    print(f"{bcolors.OKCYAN}Received query: {bcolors.MAGENTA}{query}{bcolors.DEFAULT}")
+    print(f"{bcolors.OKCYAN}Received query: {bcolors.OKMAGENTA}{query}{bcolors.DEFAULT}")
 
     try:
         if 'youtube.com' in query or 'youtu.be' in query:
@@ -265,7 +265,7 @@ async def play(interaction: discord.Interaction, query: str):
             if bot.current_pod:
                 bot.pod_queue.append(pod_info)
                 await interaction.followup.send(f"Added to queue: {pod_info['name']}", ephemeral=True)
-                print(f"{bcolors.OKCYAN}Added to queue: {bcolors.MAGENTA}{pod_info['name']}{bcolors.DEFAULT}")
+                print(f"{bcolors.OKCYAN}Added to queue: {bcolors.OKMAGENTA}{pod_info['name']}{bcolors.DEFAULT}")
             else:
                 bot.current_pod = pod_info
                 await play_podcast(interaction)
@@ -351,7 +351,7 @@ async def set_channel(interaction: discord.Interaction, channel: discord.TextCha
 
     bot.assigned_channel_id = channel.id
     await interaction.response.send_message(f"The bot channel has been set to {channel.mention}.", ephemeral=True)
-    print(f"{bcolors.OKBLUE}The bot channel has been set to {bcolors.MAGENTA}{channel.mention}.{bcolors.DEFAULT}")
+    print(f"{bcolors.OKBLUE}The bot channel has been set to {bcolors.OKMAGENTA}{channel.mention}.{bcolors.DEFAULT}")
     
     # Update queue message in the new channel
     bot.queue_message = None
