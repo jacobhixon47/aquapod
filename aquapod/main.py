@@ -29,11 +29,13 @@ class bcolors:
     OKBLUE = '\033[94m'
     OKCYAN = '\033[96m'
     OKGREEN = '\033[92m'
+    OKMAGENTA = '\033[95m'
     WARNING = '\033[93m'
     FAIL = '\033[91m'
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+    DEFAULT = '\033[99m'
 
 # Setup Discord bot 
 class PodBot(commands.Bot):
@@ -67,12 +69,12 @@ class ControlButtons(discord.ui.View):
             return
         await resume_action(interaction)
 
-    @discord.ui.button(label='Skip', style=discord.ButtonStyle.primary, emoji='⏭️')
-    async def skip_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await is_dj_or_admin(interaction):
-            await interaction.response.send_message("You need to be a DJ or admin to use this button.", ephemeral=True)
-            return
-        await skip_action(interaction)
+    # @discord.ui.button(label='Skip', style=discord.ButtonStyle.primary, emoji='⏭️')
+    # async def skip_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    #     if not await is_dj_or_admin(interaction):
+    #         await interaction.response.send_message("You need to be a DJ or admin to use this button.", ephemeral=True)
+    #         return
+    #     await skip_action(interaction)
 
     @discord.ui.button(label='Stop', style=discord.ButtonStyle.danger, emoji='⏹️')
     async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -157,11 +159,11 @@ async def play_podcast(interaction: discord.Interaction):
     if is_live:
         voice_client.play(discord.FFmpegPCMAudio(url), after=lambda e: bot.loop.create_task(play_next(interaction)))
         await interaction.followup.send(f"Now playing (live): {bot.current_pod['name']}", ephemeral=True)
-        print(f"{bcolors.OKBLUE}Now playing (live): {bot.current_pod['name']}")
+        print(f"{bcolors.OKCYAN}Now playing (live): {bcolors.MAGENTA}{bot.current_pod['name']}{bcolors.DEFAULT}")
     else:
         voice_client.play(discord.FFmpegPCMAudio(url), after=lambda e: bot.loop.create_task(play_next(interaction)))
-        await interaction.followup.send(f"Now playing: {bot.current_pod['name']}", ephemeral=True)
-        print(f"{bcolors.OKBLUE}Now playing: {bot.current_pod['name']}")
+        await interaction.followup.send(f"Now playing: {bcolors.MAGENTA}{bot.current_pod['name']}", ephemeral=True)
+        print(f"{bcolors.OKCYAN}Now playing: {bot.current_pod['name']}{bcolors.DEFAULT}")
     
     # Update the queue message to show the new "Now Playing" status
     await update_queue_message(interaction)
@@ -180,7 +182,7 @@ async def pause_action(interaction: discord.Interaction):
     if interaction.guild.voice_client and interaction.guild.voice_client.is_playing():
         interaction.guild.voice_client.pause()
         await interaction.response.send_message("Paused the playback.", ephemeral=True)
-        print(f"{bcolors.OKGREEN} Track paused.")
+        print(f"{bcolors.OKGREEN} Track paused.{bcolors.DEFAULT}")
     else:
         await interaction.response.send_message("No audio is currently playing.", ephemeral=True)
 
@@ -188,7 +190,7 @@ async def resume_action(interaction: discord.Interaction):
     if interaction.guild.voice_client and interaction.guild.voice_client.is_paused():
         interaction.guild.voice_client.resume()
         await interaction.response.send_message("Resumed the playback.", ephemeral=True)
-        print(f"{bcolors.OKGREEN} Track resumed.")
+        print(f"{bcolors.OKGREEN} Track resumed.{bcolors.DEFAULT}")
     else:
         await interaction.response.send_message("No audio is paused.", ephemeral=True)
 
@@ -196,7 +198,7 @@ async def skip_action(interaction: discord.Interaction):
     if interaction.guild.voice_client and (interaction.guild.voice_client.is_playing() or interaction.guild.voice_client.is_paused()):
         interaction.guild.voice_client.stop()
         await interaction.response.send_message("Skipped the current track.", ephemeral=True)
-        print(f"{bcolors.OKGREEN} Track skipped.")
+        print(f"{bcolors.OKGREEN} Track skipped.{bcolors.DEFAULT}")
         await play_next(interaction)
     else:
         await interaction.response.send_message("No audio is currently playing.", ephemeral=True)
@@ -208,7 +210,7 @@ async def stop_action(interaction: discord.Interaction):
         bot.current_pod = None
         bot.pod_queue.clear()
         await interaction.response.send_message("Stopped the playback and cleared the queue.", ephemeral=True)
-        print(f"{bcolors.OKGREEN} Playback stopped and queue cleared.")
+        print(f"{bcolors.OKGREEN} Playback stopped and queue cleared.{bcolors.DEFAULT}")
     else:
         await interaction.response.send_message("No audio is currently playing.", ephemeral=True)
 
@@ -231,7 +233,7 @@ async def play(interaction: discord.Interaction, query: str):
 
     await interaction.response.defer(ephemeral=True)
 
-    print(f"{bcolors.OKCYAN}Received query: {query}")
+    print(f"{bcolors.OKCYAN}Received query: {bcolors.MAGENTA}{query}{bcolors.DEFAULT}")
 
     try:
         if 'youtube.com' in query or 'youtu.be' in query:
@@ -251,7 +253,7 @@ async def play(interaction: discord.Interaction, query: str):
 
             if not video_url:
                 await interaction.followup.send("Failed to extract video URL. Please check the link.", ephemeral=True)
-                print(f"{bcolors.OKWARNING}Failed to extract video URL. Invalid link.")
+                print(f"{bcolors.OKWARNING}Failed to extract video URL. Invalid link.{bcolors.DEFAULT}")
                 return
 
             pod_info = {
@@ -263,7 +265,7 @@ async def play(interaction: discord.Interaction, query: str):
             if bot.current_pod:
                 bot.pod_queue.append(pod_info)
                 await interaction.followup.send(f"Added to queue: {pod_info['name']}", ephemeral=True)
-                print(f"{bcolors.OKGREEN}Added to queue: {pod_info['name']}")
+                print(f"{bcolors.OKCYAN}Added to queue: {bcolors.MAGENTA}{pod_info['name']}{bcolors.DEFAULT}")
             else:
                 bot.current_pod = pod_info
                 await play_podcast(interaction)
@@ -276,7 +278,7 @@ async def play(interaction: discord.Interaction, query: str):
 
     except Exception as e:
         await interaction.followup.send(f"An error occurred: {str(e)}", ephemeral=True)
-        print(f"{bcolors.FAIL}Error in play command: {e}")
+        print(f"{bcolors.FAIL}Error in play command: {e}{bcolors.DEFAULT}")
 
 @bot.tree.command()
 async def pause(interaction: discord.Interaction):
@@ -326,12 +328,12 @@ async def refresh(interaction: discord.Interaction):
         try:
             await bot.queue_message.delete()
         except Exception as e:
-            print(f"{bcolors.FAIL}Error deleting queue message: {e}")
+            print(f"{bcolors.FAIL}Error deleting queue message: {e}{bcolors.DEFAULT}")
     
     bot.queue_message = None
     await update_queue_message(interaction)
     await interaction.response.send_message("The persistent queue message has been refreshed.", ephemeral=True)
-    print(f"{bcolors.OKGREEN}Queue message refreshed.")
+    print(f"{bcolors.OKBLUE}Queue message refreshed.{bcolors.DEFAULT}")
 
 @bot.tree.command()
 @app_commands.describe(channel="The channel to set for bot operations")
@@ -349,7 +351,7 @@ async def set_channel(interaction: discord.Interaction, channel: discord.TextCha
 
     bot.assigned_channel_id = channel.id
     await interaction.response.send_message(f"The bot channel has been set to {channel.mention}.", ephemeral=True)
-    print(f"{bcolors.OKCYAN}The bot channel has been set to {channel.mention}.")
+    print(f"{bcolors.OKBLUE}The bot channel has been set to {bcolors.MAGENTA}{channel.mention}.{bcolors.DEFAULT}")
     
     # Update queue message in the new channel
     bot.queue_message = None
