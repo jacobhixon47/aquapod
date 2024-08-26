@@ -363,6 +363,6 @@ async def status(interaction: discord.Interaction):
         return
     
     await interaction.response.send_message("Check the status of Aquapod here: https://stats.uptimerobot.com/gvfTOYQSgQ", ephemeral=True)
-    print(f"{bcolors.OKGREEN}Status link provided.")
+    print(f"{bcolors.OKGREEN}Status link provided..")
 
 bot.run(DISCORD_BOT_TOKEN)
