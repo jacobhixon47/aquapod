@@ -1,1 +1,0 @@
-worker: python aquapod/main.py

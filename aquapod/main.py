@@ -142,7 +142,6 @@ async def play_podcast(interaction: discord.Interaction):
         'quiet': True,
         'noplaylist': True,  # Ensure it processes as a single video
         'cachedir': False,
-        'cookiefile': 'cookies.txt'
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -241,7 +240,6 @@ async def play(interaction: discord.Interaction, query: str):
                 'format': 'bestaudio/best',
                 'noplaylist': True,  # Ensure it processes as a single video
                 'cachedir': False,
-                'cookiefile': 'cookies.txt'
             }
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -356,15 +354,5 @@ async def set_channel(interaction: discord.Interaction, channel: discord.TextCha
     # Update queue message in the new channel
     bot.queue_message = None
     await update_queue_message(interaction)
-
-@bot.tree.command()
-async def status(interaction: discord.Interaction):
-    """Command to provide the status link for the bot"""
-    if not await is_dj_or_admin(interaction):
-        await interaction.response.send_message("You need to be a DJ or admin to use this command.", ephemeral=True)
-        return
-    
-    await interaction.response.send_message("Check the status of Aquapod here: https://stats.uptimerobot.com/gvfTOYQSgQ", ephemeral=True)
-    print(f"{bcolors.OKGREEN}Status link provided..")
 
 bot.run(DISCORD_BOT_TOKEN)
