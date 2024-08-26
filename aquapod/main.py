@@ -18,7 +18,7 @@ logger.addHandler(handler)
 # get tokens from .env
 load_dotenv()
 
-DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+DISCORD_BOT_TOKEN = os.environ['DISCORD_BOT_TOKEN']
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -86,7 +86,7 @@ async def on_ready():
     await bot.tree.sync() # sync /commands
     print(f'{bcolors.OKBLUE}Logged in as {bot.user}')
     # Load initial channel from .env if available
-    channel_id = os.getenv('ASSIGNED_CHANNEL_ID')
+    channel_id = os.environ.get('ASSIGNED_CHANNEL_ID')
     if channel_id:
         bot.assigned_channel_id = int(channel_id)
 
