@@ -355,4 +355,14 @@ async def set_channel(interaction: discord.Interaction, channel: discord.TextCha
     bot.queue_message = None
     await update_queue_message(interaction)
 
+@bot.tree.command()
+async def status(interaction: discord.Interaction):
+    """Command to provide the status link for the bot"""
+    if not await is_dj_or_admin(interaction):
+        await interaction.response.send_message("You need to be a DJ or admin to use this command.", ephemeral=True)
+        return
+    
+    await interaction.response.send_message("Check the status of Aquapod here: https://stats.uptimerobot.com/gvfTOYQSgQ", ephemeral=True)
+    print(f"{bcolors.OKGREEN}Status link provided.")
+
 bot.run(DISCORD_BOT_TOKEN)
