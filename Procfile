@@ -1,1 +1,1 @@
-worker: poetry run python aquapod/main.py
+worker: python aquapod/main.py
