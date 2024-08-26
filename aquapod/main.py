@@ -131,6 +131,7 @@ async def play_podcast(interaction: discord.Interaction):
     if not bot.current_pod:
         return
 
+    is_live = bot.current_pod.get('is_live', False)
     ydl_opts = {
         'format': 'bestaudio/best',
         'postprocessors': [{
@@ -143,8 +144,6 @@ async def play_podcast(interaction: discord.Interaction):
         'cachedir': False
     }
 
-    # os.makedirs('C:\\Users\\jacob\\code\\.yt-dlp-cache', exist_ok=True)
-
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(bot.current_pod['url'], download=False)
         url = info.get('url')
@@ -154,9 +153,15 @@ async def play_podcast(interaction: discord.Interaction):
         return
 
     voice_client = interaction.guild.voice_client
-    voice_client.play(discord.FFmpegPCMAudio(url), after=lambda e: bot.loop.create_task(play_next(interaction)))
-    await interaction.followup.send(f"Now playing: {bot.current_pod['name']}", ephemeral=True)
-    print(f"{bcolors.OKBLUE}Now playing: {bot.current_pod['name']}")
+
+    if is_live:
+        voice_client.play(discord.FFmpegPCMAudio(url), after=lambda e: bot.loop.create_task(play_next(interaction)))
+        await interaction.followup.send(f"Now playing (live): {bot.current_pod['name']}", ephemeral=True)
+        print(f"{bcolors.OKBLUE}Now playing (live): {bot.current_pod['name']}")
+    else:
+        voice_client.play(discord.FFmpegPCMAudio(url), after=lambda e: bot.loop.create_task(play_next(interaction)))
+        await interaction.followup.send(f"Now playing: {bot.current_pod['name']}", ephemeral=True)
+        print(f"{bcolors.OKBLUE}Now playing: {bot.current_pod['name']}")
     
     # Update the queue message to show the new "Now Playing" status
     await update_queue_message(interaction)
@@ -240,6 +245,7 @@ async def play(interaction: discord.Interaction, query: str):
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(query, download=False)
 
+            is_live = info.get('is_live', False)
             video_url = info.get('url')
             video_title = info.get('title', query)  # Fetch the title or use the query if not found
 
@@ -250,7 +256,8 @@ async def play(interaction: discord.Interaction, query: str):
 
             pod_info = {
                 'name': video_title,
-                'url': video_url
+                'url': video_url,
+                'is_live': is_live
             }
 
             if bot.current_pod:
