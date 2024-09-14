@@ -1,4 +1,4 @@
-# Discord Bot - Aquapod
+# Aquapod
 
 Aquapod is a Discord bot built in Python that allows users to play and manage a queue of podcasts or music from YouTube links. The bot can extract playlists, load videos into the queue, and provide persistent controls to pause, skip, and stop playback.
 
@@ -10,6 +10,16 @@ Aquapod is a Discord bot built in Python that allows users to play and manage a 
 -   Multiple guild (server) support with separate queues for each guild
 -   Ability to set a dedicated channel for queue and control operations
 -   Commands restricted to DJ role or Admins
+
+## Technologies Used
+
+| Technology                                                                     | Description                                               |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| ![Python](https://www.python.org/static/community_logos/python-logo.png)       | **Python 3.8+** - Core programming language               |
+| ![Poetry](https://python-poetry.org/images/logo.svg)                           | **Poetry** - Dependency and environment management        |
+| ![Discord.py](https://discordpy.readthedocs.io/en/stable/_static/discord.png)  | **discord.py** - Library to interact with the Discord API |
+| ![yt-dlp](https://yt-dlp.readthedocs.io/en/latest/_static/yt-dlp.svg)          | **yt-dlp** - For extracting YouTube video information     |
+| ![FFmpeg](https://upload.wikimedia.org/wikipedia/commons/3/3b/FFmpeg_logo.svg) | **FFmpeg** - Audio processing for playback                |
 
 ## Requirements
 
@@ -34,7 +44,7 @@ Aquapod is a Discord bot built in Python that allows users to play and manage a 
     poetry install
     ```
 
-3. Create a `.env` file in the root directory - use the `.env.template` file for reference.
+3. Create a `.env` file in the root directory - use the `.env.template` file for reference.  
    Be sure to add your Discord bot token:
 
     ```bash
@@ -98,8 +108,8 @@ Sets a specific channel for queue messages and control buttons. Deletes the old 
 
 ## Usage Notes
 
--   The bot requires the user have the `DJ` role or administrator privileges to use the commands.
-    _Note: You can change this in the `is_dj_or_admin()` function on line ~132:_
+-   The bot requires the user have the `DJ` role or administrator privileges to use the commands.  
+    _Note: You can change this in the `is_dj_or_admin()` function on line ~132:_  
     `return user.guild_permissions.administrator or discord.utils.get(user.roles, name="DJ") is not None # change "DJ" to "<your-role-name>"`
 
 -   The bot will look for a channel named `#aquapod-controller` by default and create a persistent queue message there. You can change the channel using the `/set_channel` command.
