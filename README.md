@@ -1,4 +1,4 @@
-# Aquapod
+# Aquapod 🪼
 
 Aquapod is a Discord bot built in Python that allows users to play and manage a queue of podcasts or music from YouTube links. The bot can extract playlists, load videos into the queue, and provide persistent controls to pause, skip, and stop playback.
 
