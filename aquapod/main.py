@@ -4,6 +4,8 @@ import threading
 import keyboard
 from dotenv import load_dotenv
 import yt_dlp
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 import discord
 from discord import app_commands
@@ -25,6 +27,8 @@ SHOULD_SYNC = os.getenv('SHOULD_SYNC', 'false').lower() == 'true'
 
 intents = discord.Intents.default()
 intents.message_content = True
+
+executor = ThreadPoolExecutor()
 
 # Colors for terminal messages
 class bcolors:
@@ -131,13 +135,16 @@ def update_queue_message_content(guild_id) -> str:
     """Generates the content for the persistent queue message for a specific guild."""
     guild_data = bot.get_guild_data(guild_id)
     now_playing = f"**Now Playing:** {guild_data['current_pod']['name'] if guild_data['current_pod'] else 'Nothing'}"
-    
-    queue_content = "\n\n**Queue:**\n"
+
+    queue_content = "\n\n**Queue (next 5):**\n"
     if not guild_data['pod_queue']:
         queue_content += "The queue is currently empty."
     else:
-        for idx, pod in enumerate(guild_data['pod_queue'], start=1):
+        # Show only the next 5 songs
+        for idx, pod in enumerate(guild_data['pod_queue'][:5], start=1):
             queue_content += f"{idx}. {pod['name']}\n"
+        if len(guild_data['pod_queue']) > 5:
+            queue_content += f"...and {len(guild_data['pod_queue']) - 5} more."
 
     return now_playing + queue_content
 
@@ -244,8 +251,44 @@ async def stop_action(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("No audio is currently playing.", ephemeral=True)
 
+async def extract_playlist_videos_async(query: str):
+    """Extracts the video URLs from a playlist and processes them one at a time."""
+    ydl_opts = {
+        'quiet': True,
+        'extract_flat': True,  # Extract metadata without downloading or fetching full details
+        'cachedir': False,
+        'ignoreerrors': True,  # Skip problematic videos in the playlist
+        'retries': 5,
+        'socket_timeout': 15
+    }
+
+    loop = asyncio.get_event_loop()
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        # Extract flat playlist metadata (only URLs)
+        logger.info(f"Started extracting playlist: {query}")
+        playlist_info = await loop.run_in_executor(executor, ydl.extract_info, query, False)
+
+    return playlist_info
+
+async def extract_video_info_async(video_url: str):
+    """Extracts details for an individual video."""
+    ydl_opts = {
+        'quiet': True,
+        'format': 'bestaudio/best',
+        'cachedir': False,
+        'ignoreerrors': True,
+        'retries': 5,
+        'socket_timeout': 15
+    }
+
+    loop = asyncio.get_event_loop()
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        # Extract details for a single video
+        logger.info(f"Extracting video: {video_url}")
+        return await loop.run_in_executor(executor, ydl.extract_info, video_url, False)
+
 @bot.tree.command()
-@app_commands.describe(query="Provide a YouTube link")
+@app_commands.describe(query="Provide a YouTube link (video or playlist)")
 async def play(interaction: discord.Interaction, query: str):
     if not await is_dj_or_admin(interaction):
         await interaction.response.send_message("You need to be a DJ or admin to use this command.", ephemeral=True)
@@ -265,31 +308,65 @@ async def play(interaction: discord.Interaction, query: str):
 
     await interaction.response.defer(ephemeral=True)
 
-    print(f"{bcolors.OKCYAN}Received query: {bcolors.OKMAGENTA}{query}{bcolors.DEFAULT}")
+    logger.info(f"Received query: {query}")
 
     try:
-        if 'youtube.com' in query or 'youtu.be' in query:
-            ydl_opts = {
-                'quiet': True,
-                'format': 'bestaudio/best',
-                'noplaylist': True,
-                'cachedir': False
-            }
+        # First, extract the list of video URLs (without full details)
+        playlist_info = await extract_playlist_videos_async(query)
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(query, download=False)
+        if 'entries' in playlist_info:  # It's a playlist
+            playlist_title = playlist_info.get('title', 'Unknown Playlist')
+            await interaction.followup.send(f"Loading playlist: {playlist_title}...", ephemeral=True)
 
-            is_live = info.get('is_live', False)
-            video_url = info.get('url')
-            video_title = info.get('title', query)
+            first_song = None
 
-            if not video_url:
+            # Process each video individually by extracting full details
+            for idx, entry in enumerate(playlist_info['entries']):
+                if entry is None or not entry.get('url'):
+                    logger.warning(f"Video at position {idx+1} in the playlist is unavailable and will be skipped.")
+                    continue
+
+                video_url = entry['url']
+                video_info = await extract_video_info_async(video_url)  # Fetch full video details
+                video_title = video_info.get('title', 'Unknown Title')
+
+                pod_info = {
+                    'name': video_title,
+                    'url': video_info.get('url'),
+                    'is_live': video_info.get('is_live', False)
+                }
+
+                guild_data['pod_queue'].append(pod_info)
+
+                # Log each song added to the queue
+                logger.info(f"Added {video_title} to the queue")
+
+                # Update the queue message after each addition
+                await update_queue_message(interaction)
+
+                # Play the first song immediately if nothing is currently playing
+                if idx == 0 and not guild_data['current_pod']:
+                    guild_data['current_pod'] = pod_info
+                    first_song = pod_info
+                    await play_podcast(interaction)
+
+            if first_song:
+                await interaction.followup.send(f"Now playing: {first_song['name']}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"Playlist {playlist_title} has been loaded into the queue.", ephemeral=True)
+
+        else:  # Single video
+            video_info = await extract_video_info_async(query)
+            video_title = video_info.get('title', query)
+            is_live = video_info.get('is_live', False)
+
+            if not video_info.get('url'):
                 await interaction.followup.send("Failed to extract video URL. Please check the link.", ephemeral=True)
                 return
 
             pod_info = {
                 'name': video_title,
-                'url': video_url,
+                'url': video_info.get('url'),
                 'is_live': is_live
             }
 
@@ -300,15 +377,11 @@ async def play(interaction: discord.Interaction, query: str):
                 guild_data['current_pod'] = pod_info
                 await play_podcast(interaction)
 
-        else:
-            await interaction.followup.send("Invalid URL. Please provide a valid YouTube link.", ephemeral=True)
-            return
-
         await update_queue_message(interaction)
 
     except Exception as e:
-        await interaction.followup.send(f"An error occurred: {str(e)}", ephemeral=True)
-        print(f"{bcolors.FAIL}Error in play command: {e}{bcolors.DEFAULT}")
+        await interaction.followup.send(f"An error occurred - Check the bot logs.", ephemeral=True)
+        logger.error(f"Error in play command: {e}")
 
 @bot.tree.command()
 async def pause(interaction: discord.Interaction):
