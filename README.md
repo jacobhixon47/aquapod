@@ -13,13 +13,11 @@ Aquapod is a Discord bot built in Python that allows users to play and manage a 
 
 ## Technologies Used
 
-| Technology                                                                     | Description                                               |
-| ------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| ![Python](https://www.python.org/static/community_logos/python-logo.png)       | **Python 3.8+** - Core programming language               |
-| ![Poetry](https://python-poetry.org/images/logo.svg)                           | **Poetry** - Dependency and environment management        |
-| ![Discord.py](https://discordpy.readthedocs.io/en/stable/_static/discord.png)  | **discord.py** - Library to interact with the Discord API |
-| ![yt-dlp](https://yt-dlp.readthedocs.io/en/latest/_static/yt-dlp.svg)          | **yt-dlp** - For extracting YouTube video information     |
-| ![FFmpeg](https://upload.wikimedia.org/wikipedia/commons/3/3b/FFmpeg_logo.svg) | **FFmpeg** - Audio processing for playback                |
+**🐍[Python 3.8+](https://www.python.org/downloads/release/python-380/)** - Core programming language |
+**🖊️[Poetry](https://python-poetry.org/)** - Dependency and environment management |
+**👾[discord.py](https://github.com/Rapptz/discord.py)** - Library to interact with the Discord API |
+**📩[yt-dlp](https://github.com/yt-dlp/yt-dlp)** - For extracting YouTube video information |
+**Ⓜ️[FFmpeg](https://ffmpeg.org/documentation.html)** - Audio processing for playback |
 
 ## Requirements
 
