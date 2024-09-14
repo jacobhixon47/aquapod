@@ -51,9 +51,9 @@ Aquapod is a Discord bot built in Python that allows users to play and manage a 
 
     ```bash
     DISCORD_BOT_TOKEN=your_token_here
-    SHOULD_SYNC=false   # Set to true if you want the bot to sync commands on start
-                        # Note: This is labor-intensive and can delay the bot startup
-                        # Which is why it should be set to false by default
+    SHOULD_SYNC=false   # Set to true if you want the bot to sync commands on start.
+                        # Note: This is labor-intensive and can delay the bot startup,
+                        # which is why it should be set to false by default.
     ```
 
 4. Ensure `FFmpeg` is installed and available on your system.
@@ -112,7 +112,7 @@ Sets a specific channel for queue messages and control buttons. Deletes the old 
 
 -   The bot requires the user have the `DJ` role or administrator privileges to use the commands.  
     _Note: You can change this in the `is_dj_or_admin()` function on line ~132:_  
-    `return user.guild_permissions.administrator or discord.utils.get(user.roles, name="DJ") is not None # change "DJ" to "<your-role-name>"`
+    `return user.guild_permissions.administrator or discord.utils.get(user.roles, name="DJ") is not None`
 
 -   The bot will look for a channel named `#aquapod-controller` by default and create a persistent queue message there. You can change the channel using the `/set_channel` command.
 -   The bot logs its activity to `discord.log` in the root directory for debugging purposes.
