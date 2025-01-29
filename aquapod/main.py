@@ -1,4 +1,7 @@
 import os
+import subprocess
+import sys
+from pathlib import Path
 import logging
 import threading
 import keyboard
@@ -18,6 +21,36 @@ logger.setLevel(logging.DEBUG)
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 logger.addHandler(handler)
+
+def ensure_latest_yt_dlp_with_cache():
+    cache_file = Path(".yt_dlp_version")
+    latest_version = None
+
+    try:
+        # Get the latest version from PyPI
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "index", "versions", "yt-dlp"],
+            check=True,
+            stdout=subprocess.PIPE,
+            text=True
+        )
+        versions = result.stdout.splitlines()
+        latest_version = versions[0] if versions else None
+
+        # Read cached version
+        cached_version = cache_file.read_text().strip() if cache_file.exists() else None
+
+        if latest_version != cached_version:
+            print("Updating yt-dlp...")
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"],
+                check=True
+            )
+            # Update cache
+            cache_file.write_text(latest_version)
+
+    except Exception as e:
+        print(f"Error updating yt-dlp: {e}")
 
 # get tokens from .env
 load_dotenv()
@@ -463,6 +496,7 @@ async def set_channel(interaction: discord.Interaction, channel: discord.TextCha
     guild_data['queue_message'] = None
     await update_queue_message(interaction)
 
+ensure_latest_yt_dlp_with_cache()
 bot.run(DISCORD_BOT_TOKEN)
 
 # def run_bot():
